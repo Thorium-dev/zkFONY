@@ -18,12 +18,14 @@ class File
     // error success
     private $status;
 
+    private $DS = DIRECTORY_SEPARATOR;
+
     public function __construct($container)
     {
 
         $this->createByParameters = array(
             'string' => function($dir){
-                $dir = $this->rootDir . '' . trim($dir, '/');
+                $dir = $this->rootDir . '' . trim($dir, $this->DS);
                 mkdir($dir);
                 return;
             }
@@ -31,7 +33,7 @@ class File
 
         $this->createDirByParameters = array(
             'string' => function($dir){
-                $dir = $this->rootDir . '' . trim($dir, '/');
+                $dir = $this->rootDir . '' . trim($dir, $this->DS);
                 mkdir($dir);
                 return;
             }
@@ -39,10 +41,10 @@ class File
 
         $this->removeDirByParameters = array(
             'string' => function($dir){
-                foreach(scandir($dir) as $file) {
-                    if ('.' === $file || '..' === $file){continue;}
-                    if (is_dir("$dir/$file")){$this->removeDirByParameters['string']("$dir/$file");}
-                    else{unlink("$dir/$file");}
+                foreach(array_diff(scandir($dir), array('.', '..')) as $file) {
+//                    if ('.' === $file || '..' === $file){continue;}
+                    if (is_dir("$dir" . $this->DS . "$file")){$this->removeDirByParameters['string']("$dir" . $this->DS . "$file");}
+                    else{unlink("$dir" . $this->DS . "$file");}
                 }
                 rmdir($dir);
                 return;
@@ -62,7 +64,7 @@ class File
                     if(
                         ($v[0] === '"' && substr($v, -1) === '"') ||
                         ($v[0] === "'" && substr($v, -1) === "'") ||
-                        ($v[0] === '/' && substr($v, -1) === '/')
+                        ($v[0] === $this->DS && substr($v, -1) === $this->DS)
                     ) {
                         // Remove if not detected as important comment ...
                         if(strpos($v, '//') === 0 || (strpos($v, '/*') === 0 && strpos($v, '/*!') !== 0 && strpos($v, '/*@cc_on') !== 0)) continue;
@@ -190,7 +192,7 @@ class File
                         (strpos($v, '/*') === 0 && substr($v, -2) === '*/')
                     ) {
                         // Remove if not detected as important comment ...
-                        if($v[0] === '/' && strpos($v, '/*!') !== 0) continue;
+                        if($v[0] === $this->DS && strpos($v, '/*!') !== 0) continue;
                         $output .= $v; // String or comment ...
                     } else {
                         $output .= _minify_css($v);
@@ -214,7 +216,7 @@ class File
         // Set container and rootDir
         if(!empty($container)){
             $this->container = $container;
-            $this->rootDir = $container->getParameter('kernel.root_dir')."/../";
+            $this->rootDir = $container->getParameter('kernel.root_dir') . $this->DS . ".." . $this->DS;
         }
 
     }
@@ -236,8 +238,8 @@ class File
      * @return boolean
      */
     public function has($filename, $dir = null){
-        $dir = $this->rootDir . '' . trim($dir, '/') . '/';
-        return file_exists($dir . '' . trim($filename, '/'));
+        $dir = $this->rootDir . '' . trim($dir, $this->DS) . $this->DS;
+        return file_exists($dir . '' . trim($filename, $this->DS));
     }
 
     /**
@@ -287,8 +289,8 @@ class File
      * @return $this
      */
     public function rename($oldName, $newName){
-        $oldName = $this->rootDir . '' . trim($oldName, '/');
-        $newName = $this->rootDir . '' . trim($newName, '/');
+        $oldName = $this->rootDir . '' . trim($oldName, $this->DS);
+        $newName = $this->rootDir . '' . trim($newName, $this->DS);
         rename($oldName, $newName);
         return $this;
     }
@@ -302,18 +304,16 @@ class File
      */
     public function get($dir = null, $filter = null){
         $res = array();
-        $dir = $this->rootDir . '' . trim($dir, '/') . '/';
+        $dir = $this->rootDir . trim($dir, $this->DS) . $this->DS;
         if(is_dir($dir)){
-            foreach(scandir($dir) as $file) {
-                if ('.' !== $file && '..' !== $file){
-                    if(is_file($dir . '' . $file)){
-                        if(!empty($filter)){
-                            if(is_string($filter) && preg_match($filter, $file)){
-                                $res[] = $file;
-                            }
-                        }else{
+            foreach(array_diff(scandir($dir), array('.', '..')) as $file) {
+                if(is_file($dir . $file)){
+                    if(!empty($filter)){
+                        if(is_string($filter) && preg_match($filter, $file)){
                             $res[] = $file;
                         }
+                    }else{
+                        $res[] = $file;
                     }
                 }
             }
@@ -424,7 +424,7 @@ class File
         $functions = $this->removeDirByParameters;
         $type = gettype($dir);
         if(isset($functions[$type])){
-            $functions[$type]($this->rootDir . '' . trim($dir, '/'));
+            $functions[$type]($this->rootDir . '' . trim($dir, $this->DS));
         }
         return $this;
     }
@@ -437,8 +437,8 @@ class File
      * @return $this
      */
     public function renameDir($oldDir, $newDir){
-        $oldDir = $this->rootDir . '' . trim($oldDir, '/');
-        $newDir = $this->rootDir . '' . trim($newDir, '/');
+        $oldDir = $this->rootDir . '' . trim($oldDir, $this->DS);
+        $newDir = $this->rootDir . '' . trim($newDir, $this->DS);
         if(file_exists($oldDir) && !file_exists($newDir)){
             rename($oldDir, $newDir);
         }
@@ -453,18 +453,18 @@ class File
      * @return $this
      */
     public function copyDir($from, $to){
-        $from = trim($from, '/');
-        $to = trim($to, '/');
+        $from = trim($from, $this->DS);
+        $to = trim($to, $this->DS);
         if(is_dir($this->rootDir . '' . $from)){
             $dir = opendir($this->rootDir . '' . $from);
             $this->createDir($to);
             while(($file = readdir($dir)) !== false) {
                 if (($file !== '.') && ($file !== '..')) {
-                    if (is_dir($this->rootDir . "$from/$file")) {
-                        $this->createDir($to . "/$file");
-                        $this->copyDir("$from/$file", "$to/$file");
+                    if (is_dir($this->rootDir . "$from" . $this->DS . "$file")) {
+                        $this->createDir($to . "" . $this->DS . "$file");
+                        $this->copyDir("$from" . $this->DS . "$file", "$to" . $this->DS . "$file");
                     } else {
-                        copy($this->rootDir . "$from/$file", $this->rootDir . "$to/$file");
+                        copy($this->rootDir . "$from" . $this->DS . "$file", $this->rootDir . "$to" . $this->DS . "$file");
                     }
                 }
             }
@@ -482,18 +482,16 @@ class File
      */
     public function getDir($dir = null, $filter = null){
         $res = array();
-        $dir = $this->rootDir . '' . trim($dir, '/') . '/';
+        $dir = $this->rootDir . trim($dir, $this->DS) . $this->DS;
         if(is_dir($dir)){
-            foreach(scandir($dir) as $file) {
-                if ('.' !== $file && '..' !== $file){
-                    if(is_dir($dir . '' . $file)){
-                        if(!empty($filter)){
-                            if(is_string($filter) && preg_match($filter, $file)){
-                                $res[] = $file;
-                            }
-                        }else{
+            foreach(array_diff(scandir($dir), array('.', '..')) as $file) {
+                if(is_dir($dir . $file)){
+                    if(!empty($filter)){
+                        if(is_string($filter) && preg_match($filter, $file)){
                             $res[] = $file;
                         }
+                    }else{
+                        $res[] = $file;
                     }
                 }
             }
