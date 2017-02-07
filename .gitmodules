@@ -1,0 +1,3 @@
+[submodule "exo_code_sale"]
+	path = exo_code_sale
+	url = https://github.com/holoflins/exo_code_sale.git
